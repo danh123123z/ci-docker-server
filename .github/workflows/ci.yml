@@ -1,0 +1,20 @@
+name: CI Docker Server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  long-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 tiếng
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start CI job
+        run: |
+          echo "Running long CI job..."
+          echo "Thời gian tối đa cho job này là 6 tiếng."
+          # Ví dụ chạy 1 lệnh dài
+          # sleep 21600  # 6 tiếng (không nên dùng trong thực tế)
