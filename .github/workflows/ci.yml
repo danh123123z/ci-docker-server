@@ -2,17 +2,39 @@ name: CI Docker Server
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
+    inputs:
+      duration:
+        description: "Thời gian chạy (giờ)"
+        required: true
+        default: "6"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
 
 jobs:
-  long-workflow:
+  ssh-server:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # 6 tiếng
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 360
 
-      - name: Start long CI job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 360
+        with:
+          limit-access-to-actor: false
+          install-dependencies: true
+
+      - name: Keep job running
         run: |
-          echo "Running CI job for 6 hours..."
-          sleep 21600
+          HOURS=${{ github.event.inputs.duration }}
+          SECONDS=$((HOURS * 3600))
+          echo "Keeping job alive for $HOURS hours ($SECONDS seconds)"
+          sleep $SECONDS
