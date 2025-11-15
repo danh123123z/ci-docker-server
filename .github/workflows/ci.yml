@@ -4,29 +4,94 @@ on:
   workflow_dispatch:
 
 jobs:
-  ssh-server:
+  server:
     runs-on: ubuntu-latest
+    env:
+      APP_PORT: 8080
 
     steps:
-      # - name: Checkout code
-      #   uses: actions/checkout@v4
+      # ---------- CHECKOUT CODE ----------
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Verify Docker is available
+      # ---------- SETUP SSH USER ----------
+      - name: Setup SSH user
+        shell: bash
+        run: |
+          USERNAME="${{ secrets.SSH_USERNAME }}"
+          if [ -z "$USERNAME" ]; then
+            USERNAME="cfuser"
+          fi
+          echo "Creating SSH user: $USERNAME"
+          sudo useradd -m "$USERNAME" || true
+          echo "$USERNAME:${{ secrets.SSH_PASSWORD }}" | sudo chpasswd
+          sudo usermod -aG sudo "$USERNAME"
+          sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
+          sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
+          sudo systemctl enable ssh
+          sudo systemctl restart ssh
+
+      # ---------- INSTALL CLOUDFLARED ----------
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+          cloudflared --version
+
+      # ---------- CREATE CONFIG.YML ----------
+      - name: Setup cloudflared config
+        shell: bash
+        run: |
+          mkdir -p ~/.cloudflared
+          # Copy config from repo
+          cp config.yml ~/.cloudflared/config.yml
+          # Create credentials file (tunnel-id will be extracted from token)
+          echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > ~/.cloudflared/token
+          echo "Config copied to ~/.cloudflared/config.yml"
+          cat ~/.cloudflared/config.yml
+
+      # ---------- START CLOUDFLARE TUNNEL ----------
+      - name: Start Cloudflare Tunnel
+        shell: bash
+        run: |
+          echo "Starting Cloudflare Tunnel..."
+          nohup cloudflared tunnel --config ~/.cloudflared/config.yml run --token "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" >/tmp/cloudflared.log 2>&1 &
+          sleep 5
+          echo "cloudflared started. Last 20 lines of log:"
+          tail -n 20 /tmp/cloudflared.log || true
+
+      # ---------- VERIFY DOCKER ----------
+      - name: Verify Docker
         run: |
           docker --version
-          docker compose version
+          docker compose version || true
 
-      - name: SSH via tmate
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: false
-
-      - name: Sleep for max GitHub limit (6 hours)
+      # ---------- SHOW SSH INFO ----------
+      - name: SSH Instructions
         run: |
-          echo "Sleeping for 6 hours (21600 seconds)"
+          USERNAME="${{ secrets.SSH_USERNAME }}"
+          if [ -z "$USERNAME" ]; then
+            USERNAME="cfuser"
+          fi
+          echo "======================================="
+          echo "SSH IS READY VIA CLOUDFLARE TUNNEL"
+          echo "1) Login Cloudflare Access:"
+          echo "   cloudflared access login ci.superdanh.com"
+          echo "2) SSH command:"
+          echo "   ssh -o ProxyCommand=\"cloudflared access ssh --hostname %h\" $USERNAME@ci.superdanh.com"
+          echo "======================================="
+          echo "Web app URL: https://app.superdanh.com"
+          echo "Port inside runner: ${APP_PORT}"
+
+      # ---------- KEEP RUNNER ALIVE ----------
+      - name: Keep runner alive
+        run: |
+          echo "Keeping runner alive for 6 hours..."
           sleep 21600
 
-      - name: Stop containers
+      # ---------- CLEANUP ----------
+      - name: Cleanup
         if: always()
         run: |
-          docker compose down
+          echo "Stopping Cloudflare Tunnel..."
+          pkill cloudflared || true
