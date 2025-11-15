@@ -75,13 +75,9 @@ jobs:
           fi
           echo "======================================="
           echo "SSH IS READY VIA CLOUDFLARE TUNNEL"
-          echo "1) Login Cloudflare Access:"
-          echo "   cloudflared access login ci.superdanh.com"
-          echo "2) SSH command:"
-          echo "   ssh -o ProxyCommand=\"cloudflared access ssh --hostname %h\" $USERNAME@ci.superdanh.com"
+          echo "SSH command:"
+          echo "   ssh $USERNAME@app.superdanh.com"
           echo "======================================="
-          echo "Web app URL: https://app.superdanh.com"
-          echo "Port inside runner: ${APP_PORT}"
 
       # ---------- KEEP RUNNER ALIVE ----------
       - name: Keep runner alive

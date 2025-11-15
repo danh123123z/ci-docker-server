@@ -1,8 +1,6 @@
 tunnel: superdanh
 
 ingress:
-  - hostname: ci.superdanh.com
-    service: ssh://localhost:22
   - hostname: app.superdanh.com
-    service: http://localhost:8080
+    service: ssh://localhost:22
   - service: http_status:404
