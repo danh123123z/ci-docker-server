@@ -28,8 +28,8 @@ jobs:
           sudo usermod -aG sudo "$USERNAME"
           sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
           sudo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
-          sudo systemctl enable ssh
-          sudo systemctl restart ssh
+          sudo systemctl restart ssh || true
+          echo "SSH setup completed"
 
       # ---------- INSTALL CLOUDFLARED ----------
       - name: Install cloudflared
