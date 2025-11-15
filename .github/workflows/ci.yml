@@ -8,18 +8,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # - name: Checkout code
+      #   uses: actions/checkout@v4
 
       - name: Verify Docker is available
         run: |
           docker --version
           docker compose version
-
-      - name: Build and start containers
-        run: |
-          chmod +x bin/up
-          ./bin/up
 
       - name: SSH via tmate
         uses: mxschmitt/action-tmate@v3
