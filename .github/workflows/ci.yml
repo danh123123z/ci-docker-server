@@ -2,39 +2,39 @@ name: CI Docker Server
 
 on:
   workflow_dispatch:
-    inputs:
-      duration:
-        description: "Thời gian chạy (giờ)"
-        required: true
-        default: "6"
-        type: choice
-        options:
-          - "1"
-          - "2"
-          - "3"
-          - "4"
-          - "5"
-          - "6"
 
 jobs:
   ssh-server:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 360
-        with:
-          limit-access-to-actor: false
-          install-dependencies: true
-
-      - name: Keep job running
+      - name: Install Docker + Docker Compose
         run: |
-          HOURS=${{ github.event.inputs.duration }}
-          SECONDS=$((HOURS * 3600))
-          echo "Keeping job alive for $HOURS hours ($SECONDS seconds)"
-          sleep $SECONDS
+          sudo apt-get update
+          sudo apt-get install -y docker.io docker-compose
+          sudo systemctl start docker
+          docker --version
+          docker compose version
+
+      - name: Build and start containers
+        run: |
+          chmod +x bin/up
+          ./bin/up
+
+      - name: SSH via tmate
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
+      - name: Sleep for max GitHub limit (6 hours)
+        run: |
+          echo "Sleeping for 6 hours (21600 seconds)"
+          sleep 21600
+
+      - name: Stop containers
+        if: always()
+        run: |
+          docker compose down
